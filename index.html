@@ -30,15 +30,159 @@
     #joystick { display: none; position: absolute; width: 100px; height: 100px; border-radius: 50%; background: rgba(255,255,255,0.06); border: 1.5px solid rgba(255,255,255,0.12); }
     #joystick-knob { position: absolute; width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.2); top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
 
-    /* MENU */
-    #menu { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(ellipse at 50% 40%, rgba(15,23,42,0.7) 0%, rgba(0,0,0,0.95) 100%); pointer-events: auto; }
-    #menu h1 { font-size: clamp(36px, 12vw, 64px); color: #fff; letter-spacing: 8px; font-weight: 800; text-shadow: 0 0 60px rgba(59,130,246,0.4); margin-bottom: 4px; }
-    #menu .sub { color: rgba(255,255,255,0.35); font-size: clamp(10px, 3vw, 13px); letter-spacing: 5px; margin-bottom: 48px; }
+    /* MENU — Title Screen */
+    @keyframes glow {
+      0%, 100% { text-shadow: 0 0 20px rgba(240,216,144,0.3), 0 0 40px rgba(240,216,144,0.15), 0 0 80px rgba(240,216,144,0.05); }
+      50% { text-shadow: 0 0 30px rgba(240,216,144,0.5), 0 0 60px rgba(240,216,144,0.25), 0 0 100px rgba(240,216,144,0.1); }
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeInWord {
+      0% { opacity: 0; transform: translateY(6px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes bgPan {
+      0% { background-position: 0% 0%; }
+      100% { background-position: 100% 100%; }
+    }
+    @keyframes subtleFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+
+    #menu {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: #0a0f0a;
+      background-image:
+        radial-gradient(ellipse at 30% 20%, rgba(74,138,58,0.12) 0%, transparent 50%),
+        radial-gradient(ellipse at 70% 80%, rgba(240,216,144,0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(20,25,35,0.9) 0%, #0a0f0a 100%);
+      animation: bgPan 20s ease-in-out infinite alternate;
+      background-size: 200% 200%;
+      pointer-events: auto;
+      overflow: hidden;
+    }
+    #menu::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(240,216,144,0.015) 2px,
+        rgba(240,216,144,0.015) 4px
+      );
+      pointer-events: none;
+      animation: subtleFloat 6s ease-in-out infinite;
+    }
+    #menu h1 {
+      font-size: clamp(42px, 14vw, 80px);
+      color: #f0d890;
+      letter-spacing: 10px;
+      font-weight: 900;
+      text-shadow: 0 0 20px rgba(240,216,144,0.3), 0 0 40px rgba(240,216,144,0.15), 0 0 80px rgba(240,216,144,0.05);
+      animation: glow 3s ease-in-out infinite;
+      margin-bottom: 6px;
+      position: relative;
+      z-index: 1;
+    }
+    #menu .sub {
+      color: rgba(255,255,255,0.3);
+      font-size: clamp(9px, 2.5vw, 12px);
+      letter-spacing: 6px;
+      margin-bottom: 8px;
+      position: relative; z-index: 1;
+    }
+    #menu .tagline {
+      color: rgba(240,216,144,0.7);
+      font-size: clamp(11px, 3vw, 15px);
+      font-weight: 600;
+      letter-spacing: 3px;
+      margin-bottom: 48px;
+      position: relative; z-index: 1;
+      display: flex; gap: 10px;
+    }
+    #menu .tagline .word {
+      opacity: 0;
+      animation: fadeInWord 0.5s ease-out forwards;
+    }
+    #menu .tagline .word:nth-child(1) { animation-delay: 0.8s; }
+    #menu .tagline .word:nth-child(2) { animation-delay: 1.4s; }
+    #menu .tagline .word:nth-child(3) { animation-delay: 2.0s; }
+
+    .menu-btns {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+      position: relative; z-index: 1;
+    }
+
+    /* Shared play button style for game over */
     .play-btn { background: linear-gradient(135deg, #3b82f6, #2563eb); border: none; color: #fff; padding: 16px 48px; border-radius: 14px; font-size: 17px; font-weight: 700; letter-spacing: 2px; cursor: pointer; box-shadow: 0 4px 24px rgba(59,130,246,0.4); transition: all 0.15s; }
     .play-btn:active { transform: scale(0.96); box-shadow: 0 2px 12px rgba(59,130,246,0.3); }
-    .menu-links { margin-top: 24px; display: flex; gap: 16px; }
-    .menu-link { color: rgba(255,255,255,0.3); font-size: 12px; cursor: pointer; }
-    .menu-link:active { color: rgba(255,255,255,0.6); }
+    .menu-btn {
+      background: rgba(20,25,35,0.85);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #fff;
+      padding: 16px 48px;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
+      opacity: 0;
+      animation: fadeInUp 0.5s ease-out forwards;
+      min-width: 260px;
+      text-align: center;
+    }
+    .menu-btn:nth-child(1) { animation-delay: 0.3s; }
+    .menu-btn:nth-child(2) { animation-delay: 0.45s; }
+    .menu-btn:nth-child(3) { animation-delay: 0.6s; }
+    .menu-btn:active { transform: scale(0.96); }
+    .menu-btn:hover {
+      border-color: rgba(240,216,144,0.4);
+      box-shadow: 0 0 24px rgba(240,216,144,0.12);
+      transform: translateY(-2px);
+    }
+
+    .menu-btn.primary {
+      background: linear-gradient(135deg, rgba(240,216,144,0.15) 0%, rgba(20,25,35,0.9) 100%);
+      border: 2px solid #f0d890;
+      color: #f0d890;
+      font-size: 18px;
+      padding: 18px 56px;
+      box-shadow: 0 4px 30px rgba(240,216,144,0.15);
+    }
+    .menu-btn.primary:hover {
+      border-color: #f0d890;
+      box-shadow: 0 0 40px rgba(240,216,144,0.25), 0 4px 30px rgba(240,216,144,0.15);
+      transform: translateY(-3px);
+    }
+
+    .menu-hints {
+      color: rgba(255,255,255,0.2);
+      font-size: 10px;
+      letter-spacing: 1px;
+      margin-top: 48px;
+      position: relative; z-index: 1;
+      opacity: 0;
+      animation: fadeInWord 0.5s ease-out 2.5s forwards;
+    }
+    .menu-version {
+      position: absolute;
+      bottom: 16px;
+      right: 20px;
+      color: rgba(255,255,255,0.15);
+      font-size: 10px;
+      letter-spacing: 1px;
+      z-index: 1;
+    }
 
     /* GAME OVER */
     #gameover { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.88); pointer-events: auto; }
@@ -235,12 +379,19 @@
 
     <div id="menu">
       <h1>SKY DRIFTER</h1>
-      <div class="sub">SURVIVOR-LIKE</div>
-      <button class="play-btn" id="btn-start">PLAY</button>
-      <div class="menu-links">
-        <div class="menu-link" id="btn-daily">Daily Challenge</div>
-        <div class="menu-link" id="btn-store">Characters</div>
+      <div class="sub">A VAMPIRE SURVIVORS-LIKE EXPERIENCE</div>
+      <div class="tagline">
+        <span class="word">Survive.</span>
+        <span class="word">Evolve.</span>
+        <span class="word">Dominate.</span>
       </div>
+      <div class="menu-btns">
+        <button class="menu-btn primary" id="btn-start">▶ START GAME</button>
+        <button class="menu-btn" id="btn-daily">🎲 DAILY CHALLENGE</button>
+        <button class="menu-btn" id="btn-store">🏪 STORE</button>
+      </div>
+      <div class="menu-hints">Arrow keys / WASD to move • Auto-attack • Collect XP to level up</div>
+      <div class="menu-version">v0.9.0</div>
     </div>
 
     <div id="gameover">
