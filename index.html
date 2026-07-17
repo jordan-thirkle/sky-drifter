@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Sky Drifter</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { overflow: hidden; background: #000; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif; width: 100%; height: 100%; touch-action: none; user-select: none; }
+    canvas { display: block; width: 100% !important; height: 100% !important; }
+    #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+
+    /* HUD */
+    #hud { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 12px; right: 12px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .hud-left, .hud-right { display: flex; flex-direction: column; gap: 4px; }
+    #health-bar { width: min(35vw, 140px); height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
+    #health-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #ef4444, #22c55e); border-radius: 3px; transition: width 0.1s; }
+    #score { color: #fff; font-size: 20px; font-weight: 700; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+    #wave { color: rgba(255,255,255,0.5); font-size: 12px; }
+    #combo { position: absolute; top: 18%; left: 50%; transform: translate(-50%, -50%); color: #ffd700; font-size: clamp(32px, 10vw, 56px); font-weight: 900; opacity: 0; transition: opacity 0.2s, transform 0.2s; text-shadow: 0 0 40px rgba(255,215,0,0.6); pointer-events: none; letter-spacing: 2px; }
+    #xp-bar { position: absolute; bottom: max(80px, calc(env(safe-area-inset-bottom) + 70px)); left: 50%; transform: translateX(-50%); width: min(50vw, 200px); height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
+    #xp-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #3b82f6, #06b6d4); border-radius: 2px; transition: width 0.15s; }
+    #abilities { position: absolute; bottom: max(95px, calc(env(safe-area-inset-bottom) + 85px)); left: 50%; transform: translateX(-50%); display: flex; gap: 4px; }
+    .ability { width: 28px; height: 28px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; font-size: 13px; display: flex; align-items: center; justify-content: center; position: relative; }
+    .ability-level { position: absolute; bottom: -1px; right: 1px; font-size: 7px; color: #ffd700; }
+
+    /* TOUCH */
+    #touch-zone { position: absolute; bottom: 0; left: 0; width: 50%; height: 35%; pointer-events: auto; z-index: 5; }
+    #joystick { display: none; position: absolute; width: 100px; height: 100px; border-radius: 50%; background: rgba(255,255,255,0.06); border: 1.5px solid rgba(255,255,255,0.12); }
+    #joystick-knob { position: absolute; width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.2); top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+
+    /* MENU */
+    #menu { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(ellipse at 50% 40%, rgba(15,23,42,0.7) 0%, rgba(0,0,0,0.95) 100%); pointer-events: auto; }
+    #menu h1 { font-size: clamp(36px, 12vw, 64px); color: #fff; letter-spacing: 8px; font-weight: 800; text-shadow: 0 0 60px rgba(59,130,246,0.4); margin-bottom: 4px; }
+    #menu .sub { color: rgba(255,255,255,0.35); font-size: clamp(10px, 3vw, 13px); letter-spacing: 5px; margin-bottom: 48px; }
+    .play-btn { background: linear-gradient(135deg, #3b82f6, #2563eb); border: none; color: #fff; padding: 16px 48px; border-radius: 14px; font-size: 17px; font-weight: 700; letter-spacing: 2px; cursor: pointer; box-shadow: 0 4px 24px rgba(59,130,246,0.4); transition: all 0.15s; }
+    .play-btn:active { transform: scale(0.96); box-shadow: 0 2px 12px rgba(59,130,246,0.3); }
+    .menu-links { margin-top: 24px; display: flex; gap: 16px; }
+    .menu-link { color: rgba(255,255,255,0.3); font-size: 12px; cursor: pointer; }
+    .menu-link:active { color: rgba(255,255,255,0.6); }
+
+    /* GAME OVER */
+    #gameover { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.88); pointer-events: auto; }
+    #gameover h2 { font-size: clamp(28px, 9vw, 48px); color: #fff; letter-spacing: 4px; font-weight: 800; margin-bottom: 20px; }
+    .go-stats { color: rgba(255,255,255,0.6); font-size: 15px; margin-bottom: 6px; }
+    .go-coins { color: #ffd700; font-size: 16px; margin: 16px 0 28px; font-weight: 600; }
+
+    /* UPGRADE */
+    #upgrade-panel { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.82); pointer-events: auto; z-index: 10; padding: 20px; }
+    #upgrade-panel h2 { color: #ffd700; font-size: clamp(18px, 6vw, 24px); margin-bottom: 24px; letter-spacing: 3px; font-weight: 700; }
+    .upgrade-btn { background: rgba(15,23,42,0.95); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px 18px; color: #fff; cursor: pointer; transition: all 0.12s; width: min(75vw, 240px); text-align: left; margin: 5px; pointer-events: auto; }
+    .upgrade-btn:active { border-color: #3b82f6; background: rgba(30,41,59,0.95); transform: scale(0.97); }
+    .upgrade-icon { font-size: 22px; margin-bottom: 4px; }
+    .upgrade-name { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+    .upgrade-desc { font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 2px; }
+    .upgrade-level { font-size: 10px; color: #3b82f6; }
+
+    /* STORE */
+    #store { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.92); pointer-events: auto; z-index: 20; padding: 20px; overflow-y: auto; }
+    #store h2 { color: #ffd700; font-size: clamp(18px, 6vw, 24px); margin-bottom: 16px; letter-spacing: 3px; }
+    .store-coins { color: #ffd700; font-size: 15px; margin-bottom: 16px; }
+    #store-content { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 400px; }
+    .store-item { background: rgba(15,23,42,0.95); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px; color: #fff; cursor: pointer; transition: all 0.12s; width: min(38vw, 130px); text-align: center; }
+    .store-item:active { border-color: #3b82f6; transform: scale(0.97); }
+    .store-item.owned { border-color: #22c55e; }
+    .store-color { width: 24px; height: 24px; border-radius: 50%; margin: 0 auto 6px; }
+    .store-name { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+    .store-stat { font-size: 10px; color: rgba(255,255,255,0.35); margin-bottom: 4px; }
+    .store-price { font-size: 11px; color: #ffd700; }
+    .store-item.owned .store-price { color: #22c55e; }
+    #store-close { position: absolute; top: max(12px, env(safe-area-inset-top)); right: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+
+    /* DAMAGE NUMBERS */
+    #damage-numbers { position: absolute; inset: 0; pointer-events: none; }
+    .dmg { position: absolute; font-weight: 800; pointer-events: none; animation: dmgFloat 0.6s ease-out forwards; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+    @keyframes dmgFloat { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-35px) scale(1.2); } }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <div id="hud">
+      <div class="hud-left">
+        <div id="health-bar"><div id="health-fill"></div></div>
+        <div id="wave">Wave <span id="wave-num">1</span></div>
+      </div>
+      <div class="hud-right">
+        <div id="score">0</div>
+      </div>
+    </div>
+    <div id="xp-bar"><div id="xp-fill"></div></div>
+    <div id="abilities"></div>
+    <div id="combo"></div>
+    <div id="damage-numbers"></div>
+
+    <div id="touch-zone">
+      <div id="joystick"><div id="joystick-knob"></div></div>
+    </div>
+
+    <div id="menu">
+      <h1>SKY DRIFTER</h1>
+      <div class="sub">SURVIVOR-LIKE</div>
+      <button class="play-btn" id="btn-start">PLAY</button>
+      <div class="menu-links">
+        <div class="menu-link" id="btn-daily">Daily Challenge</div>
+        <div class="menu-link" id="btn-store">Characters</div>
+      </div>
+    </div>
+
+    <div id="gameover">
+      <h2>GAME OVER</h2>
+      <div class="go-stats">Score: <span id="final-score">0</span></div>
+      <div class="go-stats">Wave: <span id="final-wave">1</span></div>
+      <div class="go-stats">Kills: <span id="final-kills">0</span></div>
+      <div class="go-coins">+<span id="final-coins">0</span> coins</div>
+      <button class="play-btn" id="btn-restart">PLAY AGAIN</button>
+    </div>
+
+    <div id="upgrade-panel"><h2>CHOOSE UPGRADE</h2></div>
+    <div id="store">
+      <h2>CHARACTERS</h2>
+      <div id="store-content"></div>
+      <button id="store-close">✕</button>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
