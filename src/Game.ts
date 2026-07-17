@@ -98,6 +98,7 @@ export class Game {
   private running = false;
   private over = false;
   private leveling = false;
+  private paused = false;
   private score = 0;
   private wave = 1;
   private level = 1;
@@ -113,6 +114,7 @@ export class Game {
   private comboTimer = 0;
   private slowMo = 0;
   private shakeAmount = 0;
+  private invulnTimer = 0;
 
   // Player
   private player!: THREE.Group;
@@ -252,8 +254,9 @@ export class Game {
   private setupInput(): void {
     window.addEventListener('keydown', e => {
       this.keys[e.code] = true;
+      if(e.code==='Escape' && this.running && !this.leveling) { this.togglePause(); return; }
       if(e.code==='Space'||e.code==='Enter') {
-        if(!this.running && !this.over) this.startGame(false);
+        if(!this.running && !this.over && !this.paused) this.startGame(false);
         else if(this.over) { this.storeEl.style.display='none'; this.restart(); }
       }
     });
@@ -294,6 +297,9 @@ export class Game {
     document.getElementById('btn-store')!.addEventListener('click', () => this.showStore());
     document.getElementById('btn-restart')!.addEventListener('click', () => { this.storeEl.style.display='none'; this.restart(); });
     document.getElementById('store-close')!.addEventListener('click', () => this.storeEl.style.display='none');
+    document.getElementById('pause-resume')!.addEventListener('click', () => this.togglePause());
+    document.getElementById('pause-restart')!.addEventListener('click', () => { this.togglePause(); this.restart(); });
+    document.getElementById('pause-menu-btn')!.addEventListener('click', () => { this.togglePause(); this.running=false; this.over=false; this.menuEl.style.display='flex'; document.getElementById('touch-zone')!.style.display='none'; });
 
     window.addEventListener('resize', () => {
       this.c.aspect = window.innerWidth/window.innerHeight;
@@ -325,6 +331,7 @@ export class Game {
     this.score=0; this.wave=1; this.level=1; this.xp=0; this.xpNext=10;
     this.hp=this.ch.hp; this.maxHp=this.ch.hp; this.time=0; this.kills=0;
     this.combo=0; this.comboTimer=0; this.slowMo=0; this.shakeAmount=0;
+    this.invulnTimer = 0;
     this.speed=this.ch.spd; this.dmg=this.ch.dmg; this.fireRate=this.ch.rate;
     this.fireT=0; this.range=15; this.projCount=1; this.pierce=0; this.crit=0;
     this.regen=0; this.magnet=3; this.orbitalCount=0; this.chainCount=0; this.frostRadius=0;
@@ -336,14 +343,16 @@ export class Game {
   private shake(amount: number): void { this.shakeAmount = Math.max(this.shakeAmount, amount); }
 
   private flash(color: number, duration: number): void {
-    const flash = new THREE.Mesh(new THREE.PlaneGeometry(200,200), new THREE.MeshBasicMaterial({color, transparent:true, opacity:0.3}));
+    const geo = new THREE.PlaneGeometry(200,200);
+    const mat = new THREE.MeshBasicMaterial({color, transparent:true, opacity:0.3});
+    const flash = new THREE.Mesh(geo, mat);
     flash.position.set(this.player.position.x, 0.5, this.player.position.z);
     flash.rotation.x = -Math.PI/2;
     this.s.add(flash);
     const start = Date.now();
     const anim = () => {
       const t = (Date.now()-start)/(duration*1000);
-      if(t>=1) { this.s.remove(flash); return; }
+      if(t>=1) { this.s.remove(flash); geo.dispose(); mat.dispose(); return; }
       (flash.material as THREE.MeshBasicMaterial).opacity = 0.3*(1-t);
       requestAnimationFrame(anim);
     };
@@ -482,6 +491,11 @@ export class Game {
     }
 
     this.s.remove(e);
+    if(e.geometry) e.geometry.dispose();
+    if(e.material) {
+      if(Array.isArray(e.material)) e.material.forEach(m=>m.dispose());
+      else e.material.dispose();
+    }
     this.enemies = this.enemies.filter(x=>x!==e);
   }
 
@@ -503,9 +517,11 @@ export class Game {
   }
 
   private takeDamage(d: number): void {
+    if(this.invulnTimer > 0) return;
     this.hp -= d;
     this.shake(0.2);
     this.flash(0xef4444, 0.15);
+    this.invulnTimer = 1.0;
     if(this.hp<=0) { this.hp=0; this.gameOver(); }
   }
 
@@ -552,6 +568,12 @@ export class Game {
       };
       choices.appendChild(btn);
     }
+    if(picks.length === 0) {
+      this.hp = Math.min(this.maxHp, this.hp + 10);
+      this.upgradeEl.style.display='none';
+      this.running=true; this.leveling=false;
+      this.showCombo('Full Power!', 0xffd700, 1.0);
+    }
   }
 
   private updateAbilities(): void {
@@ -580,7 +602,7 @@ export class Game {
       btn.onclick = () => {
         if(!owned && this.meta.coins>=ch.cost) {
           this.meta.coins-=ch.cost; this.meta.chars.push(ch.id); saveMeta(this.meta); this.showStore();
-        } else if(owned) { this.ch=ch; this.charIdx=CHARS.indexOf(ch); this.storeEl.style.display='none'; }
+        } else if(owned) { this.ch=ch; this.charIdx=CHARS.indexOf(ch); const body=this.player.children[0] as THREE.Mesh; if(body&&body.material){(body.material as THREE.MeshStandardMaterial).color.setHex(ch.color);(body.material as THREE.MeshStandardMaterial).emissive.setHex(ch.color);} this.storeEl.style.display='none'; }
       };
       this.storeContent.appendChild(btn);
     }
@@ -632,6 +654,20 @@ export class Game {
 
     this.time += dt;
 
+    // Combo timer
+    if(this.comboTimer > 0) {
+      this.comboTimer -= dt;
+      if(this.comboTimer <= 0) { this.combo = 0; }
+    }
+
+    // Invulnerability timer
+    if(this.invulnTimer > 0) {
+      this.invulnTimer -= dt;
+      this.player.visible = Math.floor(this.invulnTimer * 10) % 2 === 0;
+    } else {
+      this.player.visible = true;
+    }
+
     // Regen
     if(this.regen>0) this.hp=Math.min(this.maxHp, this.hp+this.regen*dt);
 
@@ -654,7 +690,7 @@ export class Game {
 
     // Orbitals
     this.orbitalAngle+=dt*3;
-    while(this.orbitals.length>this.orbitalCount) { const o=this.orbitals.pop()!; this.s.remove(o); }
+    while(this.orbitals.length>this.orbitalCount) { const o=this.orbitals.pop()!; this.s.remove(o); if(o.geometry) o.geometry.dispose(); if(o.material) { if(Array.isArray(o.material)) o.material.forEach(m=>m.dispose()); else o.material.dispose(); } }
     while(this.orbitals.length<this.orbitalCount) {
       const o=new THREE.Mesh(new THREE.SphereGeometry(0.15,6,6), new THREE.MeshBasicMaterial({color:0x06b6d4}));
       this.s.add(o); this.orbitals.push(o);
@@ -704,14 +740,14 @@ export class Game {
       const p=this.projs[i];
       p.position.add((p as any).vel.clone().multiplyScalar(dt));
       (p as any).life-=dt;
-      if((p as any).life<=0){this.s.remove(p);this.projs.splice(i,1);continue;}
+      if((p as any).life<=0){this.s.remove(p);if(p.geometry)p.geometry.dispose();if(p.material){if(Array.isArray(p.material))p.material.forEach(m=>m.dispose());else p.material.dispose();}this.projs.splice(i,1);continue;}
       for(const e of this.enemies) {
         if((p as any).hits?.has(e)) continue;
         if(p.position.distanceTo(e.position)<0.7) {
           this.dmgEnemy(e,(p as any).dmg);
           (p as any).hits?.add(e);
           if((p as any).pierce>0)(p as any).pierce--;
-          else{this.s.remove(p);this.projs.splice(i,1);break;}
+          else{this.s.remove(p);if(p.geometry)p.geometry.dispose();if(p.material){if(Array.isArray(p.material))p.material.forEach(m=>m.dispose());else p.material.dispose();}this.projs.splice(i,1);break;}
         }
       }
     }
@@ -726,7 +762,7 @@ export class Game {
       if(this.player.position.distanceTo(o.position)<0.8) {
         this.xp+=(o as any).val; this.score+=(o as any).val;
         if(this.xp>=this.xpNext) this.levelUp();
-        this.s.remove(o); this.xpOrbs.splice(i,1);
+        this.s.remove(o); if(o.geometry) o.geometry.dispose(); if(o.material) { if(Array.isArray(o.material)) o.material.forEach(m=>m.dispose()); else o.material.dispose(); } this.xpOrbs.splice(i,1);
       }
     }
 
