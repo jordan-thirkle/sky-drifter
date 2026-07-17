@@ -608,6 +608,22 @@ export class Game {
     }
   }
 
+  // === PAUSE ===
+  private togglePause(): void {
+    this.paused = !this.paused;
+    const pauseMenu = document.getElementById('pause-menu')!;
+    pauseMenu.style.display = this.paused ? 'flex' : 'none';
+    if(this.paused) {
+      document.getElementById('pause-score')!.textContent = this.score.toString();
+      document.getElementById('pause-wave')!.textContent = this.wave.toString();
+      document.getElementById('pause-kills')!.textContent = this.kills.toString();
+      document.getElementById('pause-time')!.textContent = Math.floor(this.time) + 's';
+      document.getElementById('touch-zone')!.style.display = 'none';
+    } else {
+      if(this.running) document.getElementById('touch-zone')!.style.display = 'block';
+    }
+  }
+
   // === GAME OVER ===
   private gameOver(): void {
     this.running=false; this.over=true;
