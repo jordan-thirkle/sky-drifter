@@ -313,6 +313,8 @@ export class Game {
     this.running = true;
     this.over = false;
     this.leveling = false;
+    this.paused = false;
+    document.getElementById('pause-menu')!.style.display = 'none';
     this.daily = daily;
     this.rng = daily ? seededRandom(getDailySeed()) : Math.random;
     this.menuEl.style.display = 'none';
@@ -666,7 +668,7 @@ export class Game {
     this.juice.update(performance.now());
 
     this.r.render(this.s, this.c);
-    if(!this.running||this.leveling) return;
+    if(!this.running||this.leveling||this.paused) return;
 
     this.time += dt;
 
