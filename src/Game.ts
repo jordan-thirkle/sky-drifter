@@ -1,18 +1,19 @@
 import * as THREE from 'three';
+import { GameJuice } from './systems/GameJuice';
 
 // === ABILITIES ===
-interface Ability { id: string; name: string; icon: string; maxLevel: number; desc: string; effect: (lvl: number, g: Game) => void; }
+interface Ability { id: string; name: string; icon: string; maxLevel: number; desc: string; effect: (lvl: number, g: Game) => void; preview: (lvl: number) => string; }
 const ABILITIES: Ability[] = [
-  { id: 'orbital', name: 'Orbital', icon: '🔄', maxLevel: 5, desc: 'Spinning projectiles', effect: (l,g) => { g.orbitalCount = 2+l; g.orbitalDmg = 5+l*3; }},
-  { id: 'chain', name: 'Chain', icon: '⚡', maxLevel: 5, desc: 'Lightning chains', effect: (l,g) => { g.chainCount = 1+l; g.chainDmg = 8+l*4; }},
-  { id: 'frost', name: 'Frost', icon: '❄️', maxLevel: 5, desc: 'Slows enemies', effect: (l,g) => { g.frostRadius = 3+l*2; }},
-  { id: 'multi', name: 'Multi', icon: '🔥', maxLevel: 5, desc: 'More projectiles', effect: (l,g) => { g.projCount = 1+l; }},
-  { id: 'pierce', name: 'Pierce', icon: '🗡️', maxLevel: 3, desc: 'Pass through', effect: (l,g) => { g.pierce = l; }},
-  { id: 'speed', name: 'Swift', icon: '👟', maxLevel: 5, desc: 'Move faster', effect: (l,g) => { g.speed = 8+l*2; }},
-  { id: 'power', name: 'Power', icon: '💪', maxLevel: 5, desc: 'More damage', effect: (l,g) => { g.dmg = 10+l*5; }},
-  { id: 'magnet', name: 'Magnet', icon: '🧲', maxLevel: 3, desc: 'Attract XP', effect: (l,g) => { g.magnet = 3+l*3; }},
-  { id: 'regen', name: 'Regen', icon: '💚', maxLevel: 3, desc: 'Heal over time', effect: (l,g) => { g.regen = 0.5+l*0.5; }},
-  { id: 'crit', name: 'Crit', icon: '🎯', maxLevel: 5, desc: '2x damage chance', effect: (l,g) => { g.crit = 0.05+l*0.05; }},
+  { id: 'orbital', name: 'Orbital', icon: '🔄', maxLevel: 5, desc: 'Spinning projectiles orbit you', effect: (l,g) => { g.orbitalCount = 2+l; g.orbitalDmg = 5+l*3; }, preview: (l) => `${2+l} orbs • ${5+l*3} dmg` },
+  { id: 'chain', name: 'Chain', icon: '⚡', maxLevel: 5, desc: 'Lightning chains between enemies', effect: (l,g) => { g.chainCount = 1+l; g.chainDmg = 8+l*4; }, preview: (l) => `${1+l} chains • ${8+l*4} dmg` },
+  { id: 'frost', name: 'Frost', icon: '❄️', maxLevel: 5, desc: 'Slows nearby enemies', effect: (l,g) => { g.frostRadius = 3+l*2; }, preview: (l) => `Radius ${3+l*2}` },
+  { id: 'multi', name: 'Multi', icon: '🔥', maxLevel: 5, desc: 'Fire more projectiles at once', effect: (l,g) => { g.projCount = 1+l; }, preview: (l) => `${1+l} projectiles` },
+  { id: 'pierce', name: 'Pierce', icon: '🗡️', maxLevel: 3, desc: 'Projectiles pass through enemies', effect: (l,g) => { g.pierce = l; }, preview: (l) => `Pass through ${l} targets` },
+  { id: 'speed', name: 'Swift', icon: '👟', maxLevel: 5, desc: 'Increase movement speed', effect: (l,g) => { g.speed = 8+l*2; }, preview: (l) => `Speed ${8+l*2}` },
+  { id: 'power', name: 'Power', icon: '💪', maxLevel: 5, desc: 'Increase base damage', effect: (l,g) => { g.dmg = 10+l*5; }, preview: (l) => `${10+l*5} base dmg` },
+  { id: 'magnet', name: 'Magnet', icon: '🧲', maxLevel: 3, desc: 'Attract XP orbs from further away', effect: (l,g) => { g.magnet = 3+l*3; }, preview: (l) => `Range ${3+l*3}` },
+  { id: 'regen', name: 'Regen', icon: '💚', maxLevel: 3, desc: 'Regenerate health over time', effect: (l,g) => { g.regen = 0.5+l*0.5; }, preview: (l) => `+${(0.5+l*0.5).toFixed(1)} HP/s` },
+  { id: 'crit', name: 'Crit', icon: '🎯', maxLevel: 5, desc: 'Chance for 2× critical damage', effect: (l,g) => { g.crit = 0.05+l*0.05; }, preview: (l) => `${Math.round((0.05+l*0.05)*100)}% chance` },
 ];
 
 // === ENEMIES ===
@@ -91,6 +92,7 @@ export class Game {
   private c: THREE.PerspectiveCamera;
   private clk: THREE.Clock;
   private particles: Particles;
+  private juice!: GameJuice;
 
   // State
   private running = false;
@@ -172,6 +174,7 @@ export class Game {
   private dmgContainer!: HTMLElement;
   private storeEl!: HTMLElement;
   private storeContent!: HTMLElement;
+  private levelNumEl!: HTMLElement;
 
   constructor(canvas: HTMLCanvasElement) {
     this.meta = loadMeta();
@@ -191,6 +194,7 @@ export class Game {
 
     this.clk = new THREE.Clock();
     this.particles = new Particles(this.s);
+    this.juice = new GameJuice(this.r, this.c);
 
     // Lights
     this.s.add(new THREE.AmbientLight(0x404060, 0.5));
@@ -239,6 +243,7 @@ export class Game {
     this.dmgContainer = document.getElementById('damage-numbers')!;
     this.storeEl = document.getElementById('store')!;
     this.storeContent = document.getElementById('store-content')!;
+    this.levelNumEl = document.getElementById('level-num')!;
 
     this.setupInput();
     this.animate();
@@ -494,6 +499,7 @@ export class Game {
     this.s.add(e); this.enemies.push(e);
     this.showCombo('BOSS', 0xff0000, 1.5);
     this.flash(0xff0000, 0.4);
+    this.juice.bossWarning();
   }
 
   private takeDamage(d: number): void {
@@ -517,22 +523,34 @@ export class Game {
 
   private showUpgrades(): void {
     this.upgradeEl.style.display = 'flex';
-    this.upgradeEl.innerHTML = '<h2>CHOOSE UPGRADE</h2>';
+    const choices = document.getElementById('upgrade-choices')!;
+    choices.innerHTML = '';
     const avail = ABILITIES.filter(a=>(this.abilityLvls[a.id]||0)<a.maxLevel);
     const picks = [...avail].sort(()=>Math.random()-0.5).slice(0,3);
     for(const a of picks) {
       const lvl = (this.abilityLvls[a.id]||0);
       const btn = document.createElement('button');
       btn.className = 'upgrade-btn';
-      btn.innerHTML = `<div class="upgrade-icon">${a.icon}</div><div class="upgrade-name">${a.name}</div><div class="upgrade-desc">${a.desc}</div><div class="upgrade-level">Lv${lvl} → ${lvl+1}</div>`;
+      btn.innerHTML = `
+        <div class="upgrade-icon">${a.icon}</div>
+        <div class="upgrade-info">
+          <div class="upgrade-name">${a.name}</div>
+          <div class="upgrade-lvl">Lv ${lvl} → ${lvl+1} / ${a.maxLevel}</div>
+          <div class="upgrade-desc">${a.desc}</div>
+          <div class="upgrade-effect">▸ ${a.preview(lvl+1)}</div>
+        </div>`;
       btn.onclick = () => {
         this.abilityLvls[a.id] = lvl+1;
         a.effect(lvl+1, this);
+        // Visual feedback on upgrade selection
+        this.flash(0xd6a83f, 0.35);
+        this.showCombo(`${a.icon} ${a.name} Lv${lvl+1}`, 0xd6a83f, 1.0);
+        this.shake(0.25);
         this.upgradeEl.style.display='none';
         this.running=true; this.leveling=false;
         this.updateAbilities();
       };
-      this.upgradeEl.appendChild(btn);
+      choices.appendChild(btn);
     }
   }
 
@@ -606,6 +624,9 @@ export class Game {
     // Particles always update
     this.particles.update(rawDt);
 
+    // Game juice always update
+    this.juice.update(performance.now());
+
     this.r.render(this.s, this.c);
     if(!this.running||this.leveling) return;
 
@@ -655,6 +676,7 @@ export class Game {
       this.spawnT=0;
       this.showCombo(`WAVE ${this.wave}`, 0xf97316, 1.1);
       this.flash(0xf97316, 0.2);
+      this.juice.waveBanner(this.wave);
       if(this.wave%5===0) this.spawnBoss();
     }
 
@@ -713,5 +735,6 @@ export class Game {
     this.waveEl.textContent=this.wave.toString();
     this.hpFill.style.width=`${(this.hp/this.maxHp)*100}%`;
     this.xpFill.style.width=`${(this.xp/this.xpNext)*100}%`;
+    this.levelNumEl.textContent=`Lv ${this.level}`;
   };
 }
