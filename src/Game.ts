@@ -73,6 +73,7 @@ class Particles {
 // === DAILY CHALLENGE ===
 function getDailySeed(): number { const d = new Date(); return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate(); }
 function seededRandom(seed: number): () => number { let s = seed; return () => { s = (s*16807)%2147483647; return (s-1)/2147483646; }; }
+function shuffleSeeded<T>(items: T[], rng: () => number): T[] { const copy = [...items]; for (let i = copy.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [copy[i], copy[j]] = [copy[j], copy[i]]; } return copy; }
 
 // === META ===
 interface Meta { coins: number; best: number; bestWave: number; kills: number; games: number; chars: string[]; }
@@ -109,7 +110,7 @@ export class Game {
   private time = 0;
   private kills = 0;
   private daily = false;
-  private rng: () => number = Math.random;
+  private rng: () => number = seededRandom(Date.now());
   private combo = 0;
   private comboTimer = 0;
   private slowMo = 0;
@@ -316,7 +317,7 @@ export class Game {
     this.paused = false;
     document.getElementById('pause-menu')!.style.display = 'none';
     this.daily = daily;
-    this.rng = daily ? seededRandom(getDailySeed()) : Math.random;
+    this.rng = seededRandom(daily ? getDailySeed() : Date.now());
     this.menuEl.style.display = 'none';
     this.overEl.style.display = 'none';
     this.upgradeEl.style.display = 'none';
@@ -430,7 +431,7 @@ export class Game {
 
   private dmgEnemy(e: THREE.Mesh, d: number): void {
     if((e as any).dead) return;
-    const isCrit = Math.random()<this.crit;
+    const isCrit = this.rng()<this.crit;
     const final = isCrit ? d*2 : d;
     (e as any).hp -= final;
     const mat = e.material as THREE.MeshStandardMaterial;
@@ -544,7 +545,7 @@ export class Game {
     const choices = document.getElementById('upgrade-choices')!;
     choices.innerHTML = '';
     const avail = ABILITIES.filter(a=>(this.abilityLvls[a.id]||0)<a.maxLevel);
-    const picks = [...avail].sort(()=>Math.random()-0.5).slice(0,3);
+    const picks = shuffleSeeded(avail, this.rng).slice(0,3);
     for(const a of picks) {
       const lvl = (this.abilityLvls[a.id]||0);
       const btn = document.createElement('button');
